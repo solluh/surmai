@@ -1,5 +1,5 @@
 import { Card, Container, Flex, LoadingOverlay, Modal, Stack, Text, Title } from '@mantine/core';
-import { useDisclosure, useMediaQuery } from '@mantine/hooks';
+import { useDisclosure } from '@mantine/hooks';
 import { useQuery } from '@tanstack/react-query';
 import { Fragment } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { AddActivitiesMenu } from './AddActivitiesMenu.tsx';
 import { GenericActivityData } from './GenericActivityData.tsx';
 import { GenericActivityForm } from './GenericActivityForm.tsx';
+import { useSurmaiContext } from '../../../app/useSurmaiContext.ts';
 import { listActivities } from '../../../lib/api';
 
 import type { Activity, Attachment, Expense, Trip } from '../../../types/trips.ts';
@@ -29,7 +30,7 @@ export const ActivitiesPanel = ({
     queryFn: () => listActivities(tripId || ''),
   });
 
-  const isMobile = useMediaQuery('(max-width: 50em)');
+  const { isMobile } = useSurmaiContext();
   const [formOpened, { open: openForm, close: closeForm }] = useDisclosure(false);
 
   const refetchData = () => {
@@ -86,7 +87,13 @@ export const ActivitiesPanel = ({
           {data.map((t: Activity) => {
             return (
               <Fragment key={t.id}>
-                <GenericActivityData refetch={refetchData} trip={trip} activity={t} tripAttachments={tripAttachments} expenseMap={expenseMap} />
+                <GenericActivityData
+                  refetch={refetchData}
+                  trip={trip}
+                  activity={t}
+                  tripAttachments={tripAttachments}
+                  expenseMap={expenseMap}
+                />
               </Fragment>
             );
           })}

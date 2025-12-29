@@ -1,50 +1,42 @@
 import {
-  ActionIcon,
-  Anchor,
-  Badge,
-  Button,
-  Card,
-  Container,
-  FileButton,
-  Flex,
-  Grid,
-  Group,
-  Loader,
-  Modal,
-  RingProgress,
-  Select,
-  SimpleGrid,
-  Stack,
-  Text,
-  TextInput,
-  Title,
+    ActionIcon,
+    Anchor,
+    Badge,
+    Button,
+    Card,
+    FileButton,
+    Flex,
+    Grid,
+    Group,
+    Loader,
+    Modal,
+    RingProgress,
+    Select,
+    SimpleGrid,
+    Stack,
+    Text,
+    TextInput,
+    Title
 } from '@mantine/core';
 import { DateInput } from '@mantine/dates';
-import { useMediaQuery } from '@mantine/hooks';
 import { openConfirmModal, openContextModal } from '@mantine/modals';
 import { IconEdit, IconPlus, IconTrash } from '@tabler/icons-react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useSurmaiContext } from '../../../app/useSurmaiContext.ts';
 import { useCurrentUser } from '../../../auth/useCurrentUser.ts';
-import {
-  createExpense,
-  deleteExpense,
-  getAttachmentUrl,
-  getCurrencyConversionRates,
-  listExpenses,
-  updateExpense,
-  uploadAttachments,
-} from '../../../lib/api';
+import { createExpense, deleteExpense, getAttachmentUrl, updateExpense, uploadAttachments } from '../../../lib/api';
 import i18n from '../../../lib/i18n.ts';
 import { showDeleteNotification, showErrorNotification } from '../../../lib/notifications.tsx';
-import type { ConversionRate } from '../../../types/expenses.ts';
-import type { Attachment, CreateExpense, Expense, Trip } from '../../../types/trips.ts';
-import { CurrencyInput } from '../../util/CurrencyInput.tsx';
-import { convertExpenses, getExpenseTotalsByCurrency, getRandomColor } from './helper.ts';
 import { fakeAsUtcString } from '../../../lib/time.ts';
+import { CurrencyInput } from '../../util/CurrencyInput.tsx';
+import { getRandomColor } from './helper.ts';
+import { useTripExpenses } from './useTripExpenses.ts';
+
+import type { Attachment, CreateExpense, Expense, Trip } from '../../../types/trips.ts';
 
 const EXPENSE_CATEGORY_DATA: { [key: string]: { label: string; color: string } } = {
   lodging: {
@@ -120,26 +112,11 @@ export const ExpensesPanel = ({ trip, tripAttachments }: { trip: Trip; tripAttac
   const [category, setCategory] = useState<string | null>(null);
   const [files, setFiles] = useState<File[]>([]);
   const [existingAttachments, setExistingAttachments] = useState<Attachment[]>([]);
-  const isMobile = useMediaQuery('(max-width: 50em)');
+  const { isMobile } = useSurmaiContext();
 
-  const { data: rawExpenses, isLoading } = useQuery<Expense[]>({
-    queryKey: ['listExpenses', trip.id],
-    queryFn: () => listExpenses(trip.id),
+  const { convertedExpenses, totalsByCurrency, isLoading } = useTripExpenses({
+    trip: trip,
   });
-
-  const expenseCurrencies = rawExpenses?.map((e) => e.cost?.currency || 'USD');
-  const currencyCodes = new Set([
-    trip.budget?.currency || 'USD',
-    user?.currencyCode || 'USD',
-    ...(expenseCurrencies || []),
-  ]);
-  const { data: rates } = useQuery<ConversionRate[]>({
-    queryKey: ['getCurrencyConversionRates', Array.from(currencyCodes)],
-    queryFn: () => getCurrencyConversionRates(Array.from(currencyCodes)),
-  });
-
-  const expenses = convertExpenses(user, trip, rawExpenses || [], rates || []);
-  const totalsByCurrency = getExpenseTotalsByCurrency(user, trip, expenses || []);
 
   const openModalForAdd = () => {
     resetForm();
@@ -268,7 +245,7 @@ export const ExpensesPanel = ({ trip, tripAttachments }: { trip: Trip; tripAttac
     });
   };
 
-  const sortedExpenses = [...(expenses || [])].sort((a, b) => {
+  const sortedExpenses = [...(convertedExpenses || [])].sort((a, b) => {
     if (!sortBy) return 0;
 
     let comparison = 0;
@@ -290,7 +267,7 @@ export const ExpensesPanel = ({ trip, tripAttachments }: { trip: Trip; tripAttac
   });
 
   let expenseAttachmentsMap: { [key: string]: Attachment[] } = {};
-  (expenses || []).forEach((e: Expense) => {
+  (convertedExpenses || []).forEach((e: Expense) => {
     const expenseAttachments = tripAttachments?.filter(
       (a) => e.attachmentReferences && e.attachmentReferences.includes(a.id)
     );
@@ -397,8 +374,8 @@ export const ExpensesPanel = ({ trip, tripAttachments }: { trip: Trip; tripAttac
   ));
 
   return (
-    <Container mt={'sm'} size={'xl9'}>
-      <Group justify="space-between" align="center" mb="md">
+    <>
+      <Group justify="space-between" align="center" mt='md' mb="md" p={0}>
         <Select
           label={t('sort_by', 'Sort by')}
           placeholder={t('select_sort', 'Select sorting')}
@@ -487,13 +464,13 @@ export const ExpensesPanel = ({ trip, tripAttachments }: { trip: Trip; tripAttac
                 </>
               ) : (
                 <Text size="sm" c="dimmed" ta="center" py="xl">
-                  {t('no_budget_set', 'No budget set for this trip')}
+                  {t('no_budget_set', 'No budget set')}
                 </Text>
               )}
             </Stack>
             <Card.Section px="md" mt={'xl'}>
               <Anchor size="sm" href="https://www.exchangerate-api.com" ta="end" target="_blank">
-                Rates By Exchange Rate API
+                conversionRates By Exchange Rate API
               </Anchor>
             </Card.Section>
           </Card>
@@ -802,6 +779,6 @@ export const ExpensesPanel = ({ trip, tripAttachments }: { trip: Trip; tripAttac
           </Group>
         </Stack>
       </Modal>
-    </Container>
+    </>
   );
 };
